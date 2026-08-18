@@ -67,6 +67,211 @@ http://127.0.0.1:4174
 9. 应用自动获得 taskId、持续轮询并下载视频；
 10. 在“结果素材”查看视频。
 
+## Q&A｜网络、Cookie 与常见报错
+
+### Q1：软件需要什么网络环境？
+
+需要能够稳定访问 TikTok Ads / Creative Studio 相关域名，包括 `ads.tiktok.com` 以及生成、上传过程中使用的 TikTok CDN / Upload Host。
+
+Windows 本地使用时，推荐使用 **Clash / Clash Verge** 或其他能够接管 Windows 系统代理的客户端，并优先开启“系统代理（System Proxy）”。软件本身不提供代理节点，也不包含任何代理订阅。
+
+当前程序的代理解析优先级为：
+
+1. 环境变量 `PROXY`；
+2. 环境变量 `HTTPS_PROXY`；
+3. 环境变量 `HTTP_PROXY`；
+4. Electron / Windows 系统代理或 PAC；
+5. 默认兜底代理 `http://127.0.0.1:7897`；
+6. 无可用代理时使用直连。
+
+如果 Clash / Clash Verge 的端口不是 `7897`，建议直接开启 Windows 系统代理，或者显式配置 `PROXY` / `HTTPS_PROXY` / `HTTP_PROXY`，不要依赖默认端口。
+
+> 建议优先使用 HTTP / Mixed 系统代理。部分请求链路在 Electron 网络失败后会进入 HTTP CONNECT 备用通道，因此不建议只配置纯 SOCKS 环境变量代理。
+
+### Q2：Clash / Clash Verge 推荐怎么设置？
+
+建议按以下顺序检查：
+
+1. 启动 Clash / Clash Verge；
+2. 使用你自己的可用代理配置；
+3. 开启 **System Proxy / 系统代理**；
+4. 确认浏览器可以正常访问 `ads.tiktok.com`；
+5. 再启动 Universal HTTP Video Studio；
+6. 点击顶部 **“网络诊断”**。
+
+网络诊断会显示：
+
+- 当前网络模式：`environment / system / fallback / direct`；
+- 当前代理地址；
+- `ads.tiktok.com` 连通性结果。
+
+如果切换节点、代理端口或系统代理状态后软件仍显示旧网络状态，建议关闭并重新启动 App，再执行一次“网络诊断”。
+
+如果诊断结果显示 `DIRECT`，说明当前请求没有经过代理；如果你的本地网络无法直连 TikTok Ads，应先解决代理配置再验证 Cookie 或提交任务。
+
+### Q3：Cookie 从哪里来？怎么导入？
+
+Cookie 必须来自**你自己已经正常登录 `ads.tiktok.com` 的浏览器会话**。普通 TikTok 前台登录 Cookie 不一定包含 Ads / Creative Studio 所需的登录态。
+
+App 支持上传 `.txt` 或 `.json` Cookie 文件，并支持以下常见格式：
+
+- JSON Cookie 数组；
+- `{ "cookies": [...] }` 结构；
+- Netscape / `cookies.txt` 格式；
+- 浏览器请求头形式的 `name=value; name2=value2; ...`。
+
+导入后需要点击 **“验证”**。只有 Cookie 状态为 `valid` 时，提交按钮才会允许正式创建任务。
+
+Cookie 会在本地加密保存。请不要把真实 Cookie 文件、数据库或加密主密钥上传到 GitHub、Issue、网盘公开链接或发送给其他人。
+
+源码模式下以下内容属于敏感运行数据，不应提交到版本库：
+
+```text
+storage/data/studio.db
+storage/secrets/master.key
+storage/secrets/
+真实 Cookie 文件
+```
+
+### Q4：为什么浏览器已经登录，但 Cookie 还是显示 `Login Required`？
+
+常见原因：
+
+- 导出的不是 `ads.tiktok.com` 登录状态；
+- Cookie 已过期；
+- Cookie 文件缺少关键登录字段；
+- 浏览器重新登录后旧 Cookie 已失效；
+- 网络或代理异常导致验证请求没有正常到达 Ads 后台。
+
+处理顺序建议：
+
+1. 先点击“网络诊断”；
+2. 确认 `ads.tiktok.com` 连通；
+3. 在浏览器中重新打开 Ads / Creative Studio 并确认仍是登录状态；
+4. 重新导出完整 Cookie；
+5. 删除旧 Cookie Profile 或重新导入；
+6. 再点击“验证”。
+
+如果错误内容是 `ECONNRESET / ETIMEDOUT / Proxy CONNECT`，优先处理网络，不要急着重新导出 Cookie。
+
+### Q5：`未识别到有效 Cookie` 是什么问题？
+
+这通常是 Cookie 文件格式问题，而不是账号问题。
+
+请确认：
+
+- 文件不是空文件；
+- 使用 `.txt` 或 `.json`；
+- JSON 中存在 Cookie 数组；
+- Netscape 文件字段完整；
+- 请求头形式至少包含 `name=value`；
+- 没有把浏览器 Local Storage、请求响应 JSON 或其他非 Cookie 内容误当成 Cookie 导入。
+
+### Q6：`Cookie 内容无法转换为请求头` 怎么处理？
+
+表示文件虽然被读取，但没有得到可用于 TikTok 请求的 Cookie Header。建议重新从已经登录 `ads.tiktok.com` 的浏览器导出完整 Cookie，并优先使用标准 JSON 或 Netscape `cookies.txt` 格式。
+
+### Q7：`ECONNRESET` / `ETIMEDOUT` / `EPIPE` / `Proxy CONNECT` 是什么问题？
+
+这些通常属于**网络、代理或 TLS 链路错误**。
+
+| 报错 | 常见含义 | 建议处理 |
+| --- | --- | --- |
+| `ECONNRESET` | 连接被远端或中间代理重置 | 换稳定节点，检查 Clash 系统代理，重新执行网络诊断 |
+| `ETIMEDOUT` / `timeout` | 请求超时 | 检查节点延迟、代理可用性、网络稳定性 |
+| `EPIPE` | 连接过程中通道被关闭 | 重连代理后重试 |
+| `Proxy CONNECT failed` | HTTP 代理无法建立 HTTPS CONNECT | 检查代理地址、端口、代理客户端是否启动 |
+| `Proxy CONNECT timeout` | 代理端口存在但无法完成连接 | 换节点或检查 Clash 端口 |
+| `Invalid HTTP response` | 代理或上游返回了非预期响应 | 检查代理协议、透明代理、网络劫持情况 |
+| `ENOTFOUND` | DNS / 域名解析失败 | 检查系统 DNS 与代理 DNS 设置 |
+
+程序对部分临时网络错误会自动重试，但持续出现时应先修复网络环境。
+
+### Q8：`SUBMIT_FAILED` / `提交未返回 taskId` 怎么处理？
+
+表示提交请求已经发出，但没有获得有效的远端生成 `taskId`。
+
+优先检查：
+
+1. Cookie 是否仍然 `valid`；
+2. 网络诊断是否正常；
+3. Ads / Creative Studio 网页当前是否还能正常使用；
+4. 当前 Prompt、参考图、参考视频和参考音频是否符合限制；
+5. 先用 1 张图片 + 1 条简单 Prompt + 4–8 秒输出做单任务测试。
+
+不要一开始就开几十条并发来测试 Cookie 或网络状态。
+
+### Q9：`TIKTOK_*_REJECTED` 是什么问题？
+
+这是 TikTok 内容审核返回的拒绝，不属于网络故障。程序会尽量区分具体来源：
+
+- `TIKTOK_TEXT_REJECTED`：提示词文本被拒绝；
+- `TIKTOK_PROMPT_REJECTED`：Prompt 被拒绝；
+- `TIKTOK_IMAGE_REJECTED`：参考图片被拒绝；
+- `TIKTOK_VIDEO_REJECTED`：参考视频被拒绝；
+- `TIKTOK_AUDIO_REJECTED`：参考音频被拒绝。
+
+处理方式是修改或替换对应内容后再提交。对于明确的审核拒绝，不建议持续自动重试同一份素材。
+
+### Q10：为什么提示词卡显示无效，提交按钮不可用？
+
+这是本地提交前校验。常见规则包括：
+
+- 至少 1 张参考图片；
+- 图片最多 9 张；
+- 视频最多 3 个；
+- 音频最多 3 个；
+- 图片 + 视频 + 音频总数最多 12 个；
+- 输出时长为 4–15 秒整数；
+- 参考视频总时长不能超过输出时长，也不能超过 15 秒；
+- 参考音频总时长不能超过输出时长，也不能超过 15 秒；
+- 超长参考视频必须先完成片段审核。
+
+前端卡片的“参考审核”区域会直接显示当前不通过的原因。
+
+### Q11：`InvalidParameter` 怎么处理？
+
+通常表示提交给远端的参数、素材规格或时长不符合当前 Creative Studio 接口要求。先检查：
+
+- 输出时长；
+- 参考视频 / 音频总时长；
+- 参考文件数量；
+- 视频是否已裁剪审核；
+- 文件格式和文件大小；
+- 是否使用了当前 Provider 不支持的组合。
+
+如果是稳定复现的远端 `InvalidParameter`，建议先降低为最简单的纯图片参考任务验证，再逐个增加视频或音频参考定位问题。
+
+### Q12：`download_failed` 是生成失败吗？
+
+不一定。`download_failed` 表示程序已经进入结果下载阶段，但本地下载没有成功。
+
+如果远端视频 URL 已经取得，通常可以先修复代理或网络，再重新执行下载 / 生命周期检查。不要仅因为下载失败就立即重新生成同一个视频。
+
+### Q13：为什么程序重启后有任务显示未自动重提？
+
+如果任务在“已经发出提交请求、但还没有拿到 taskId”的时间点强制退出，程序会保守处理，避免重启后再次提交导致重复扣量或重复生成。这类情况可能看到类似：
+
+```text
+APP_RESTARTED_BEFORE_TASK_ID
+```
+
+此时应先去 Creative Studio 后台确认是否已经存在对应任务，再决定是否重新提交。
+
+### Q14：网络和 Cookie 都正常，但还是频繁失败怎么办？
+
+建议按最小化测试法排查：
+
+1. 并发改为 `1`；
+2. 每张卡生成数量改为 `1`；
+3. 只放 1 张参考图片；
+4. Prompt 使用简单描述；
+5. 输出 4–8 秒；
+6. 提交 1 条测试；
+7. 成功后再逐步恢复视频、音频、多卡片和高并发。
+
+这样可以快速判断问题发生在网络、Cookie、素材、Prompt、Provider 参数还是并发层。
+
 ## 关键目录
 
 ```text
