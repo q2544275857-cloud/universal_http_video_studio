@@ -89,18 +89,12 @@ $zipPath = Join-Path $backupDir 'universal_http_video_studio_V0.5.10_source.zip'
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 git archive --format=zip --output="$zipPath" HEAD
 
-# Create or attach private GitHub repository.
-$repoName = 'universal-http-video-studio'
-$repoFull = "$login/$repoName"
-gh repo view $repoFull --json nameWithOwner,visibility 2>$null | Out-Null
-$repoExists = ($LASTEXITCODE -eq 0)
+# Attach the existing GitHub repository requested by the user.
+$repoFull = 'q2544275857-cloud/universal_http_video_studio'
 $remoteUrl = "https://github.com/$repoFull.git"
-
-if (-not $repoExists) {
-  gh repo create $repoFull --private --description 'Universal HTTP Video Studio source backup' | Out-Host
-  if ($LASTEXITCODE -ne 0) {
-    throw "GitHub repository creation failed for $repoFull."
-  }
+gh repo view $repoFull --json nameWithOwner,visibility,url | Out-Host
+if ($LASTEXITCODE -ne 0) {
+  throw "Target GitHub repository does not exist or is not accessible: $repoFull"
 }
 
 $origin = git remote get-url origin 2>$null
@@ -115,7 +109,19 @@ if (-not $origin) {
   throw 'Git remote origin was not created.'
 }
 
-# Push source and tag.
+# Preserve the existing GitHub repository history. The remote currently has an
+# initial README commit, while the local project has its own independent history.
+git fetch origin main | Out-Host
+if ($LASTEXITCODE -ne 0) { throw 'Failed to fetch origin/main.' }
+
+git merge-base --is-ancestor origin/main HEAD 2>$null
+$remoteAlreadyMerged = ($LASTEXITCODE -eq 0)
+if (-not $remoteAlreadyMerged) {
+  git merge origin/main --allow-unrelated-histories -s ours -m 'Merge existing GitHub repository history' | Out-Host
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to merge existing GitHub repository history.' }
+}
+
+# Push source and backup tag without force-pushing.
 git push -u origin main
 if ($LASTEXITCODE -ne 0) { throw 'Failed to push main branch.' }
 git push origin $tag
