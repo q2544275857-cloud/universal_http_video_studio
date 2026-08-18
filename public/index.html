@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Universal HTTP Video Studio</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Universal HTTP Video Studio</h1>
+      <p>第三阶段 · HTTP 提交 / 持续轮询 / 自动下载 / 结果管理</p>
+    </div>
+    <div id="providerBadge" class="badge">检查 Provider…</div>
+  </header>
+
+  <main class="shell">
+    <section class="run-panel panel">
+      <div class="run-item">
+        <label>广告后台 Cookie</label>
+        <div class="row">
+          <button id="cookieImportButton">上传 Cookie</button>
+          <button id="cookieValidateButton" class="secondary" disabled>验证</button>
+          <button id="networkDiagnosticsButton" class="secondary">网络诊断</button>
+          <input id="cookieFileInput" type="file" accept=".txt,.json" hidden />
+        </div>
+        <div id="cookieStatus" class="hint">尚未上传</div>
+      </div>
+      <div class="run-item">
+        <label>视频保存目录</label>
+        <button id="outputFolderButton">选择目录</button>
+        <div id="outputFolderStatus" class="hint">尚未选择</div>
+      </div>
+      <div class="run-item concurrency-setting">
+        <label>HTTP 提交并发上限</label>
+        <input id="submitConcurrency" type="number" min="1" max="99" step="1" value="5" />
+        <div class="hint">默认 5，最高 99 · 同卡并发，卡片间分组提交</div>
+      </div>
+      <div class="run-item summary">
+        <span><strong id="assetCount">0</strong> 图片</span>
+        <span><strong id="videoCount">0</strong> 视频</span>
+        <span><strong id="audioCount">0</strong> 音频</span>
+        <span><strong id="validCount">0</strong> 有效卡片</span>
+        <span><strong id="taskCount">0</strong> 任务</span>
+        <span><strong id="completedCount">0</strong> 已完成</span>
+      </div>
+      <button id="submitButton" class="primary submit" disabled>提交全部有效卡片</button>
+    </section>
+
+    <section id="errorBanner" class="error-banner hidden"></section>
+
+    <section class="workspace">
+      <aside class="panel assets-panel">
+        <div class="panel-head">
+          <div><small>STEP 1</small><h2>参考素材库</h2></div>
+        </div>
+        <div class="asset-library-tabs">
+          <button class="asset-library-tab active" data-tab="image" type="button">图片库</button>
+          <button class="asset-library-tab" data-tab="video" type="button">视频库</button>
+          <button class="asset-library-tab" data-tab="audio" type="button">音频库</button>
+        </div>
+        <div class="asset-library-view active" data-tab="image">
+          <div class="library-toolbar"><button id="assetFolderButton">选择图片文件夹</button></div>
+          <div id="folderStatus" class="folder-status">尚未选择图片文件夹</div>
+          <input id="assetSearch" type="search" placeholder="搜索图片文件名、别名或相对路径" />
+          <div id="assetList" class="asset-grid empty">暂无图片</div>
+        </div>
+        <div class="asset-library-view" data-tab="video">
+          <div class="library-toolbar"><button id="importVideoLibraryButton" type="button">选择 / 刷新视频主文件夹</button></div>
+          <div id="videoFolderStatus" class="folder-status">尚未选择视频主文件夹</div>
+          <div class="library-rule">递归导入 MP4/MOV/WebM/MKV/M4V；超过 20 秒的视频直接跳过，不进入素材库。单任务最多 3 个参考视频，参考片段总时长不能超过输出时长。</div>
+          <input id="videoLibrarySearch" type="search" placeholder="搜索视频文件名或别名" />
+          <div id="videoLibraryList" class="reference-library-grid empty">暂无视频</div>
+        </div>
+        <div class="asset-library-view" data-tab="audio">
+          <div class="library-toolbar"><button id="importAudioLibraryButton" type="button">选择 / 刷新音频文件夹</button></div>
+          <div id="audioFolderStatus" class="folder-status">尚未选择音频文件夹</div>
+          <div class="library-rule">递归导入文件夹内 MP3/WAV/M4A/AAC/OGG/FLAC；每个任务最多 3 个参考音频，参考音频总时长不能超过输出时长。</div>
+          <input id="audioLibrarySearch" type="search" placeholder="搜索音频文件名或别名" />
+          <div id="audioLibraryList" class="reference-library-grid empty">暂无音频</div>
+        </div>
+      </aside>
+
+      <section class="panel cards-panel">
+        <div class="panel-head">
+          <div><small>STEP 2</small><h2>提示词卡</h2></div>
+          <div class="panel-head-actions prompt-batch-actions">
+            <label class="global-generation-control">全部卡片生成 <input id="globalGenerationCount" type="number" min="1" max="99" step="1" value="2" /> 条</label>
+            <button id="applyGlobalGenerationCountButton" class="secondary" type="button">应用到全部</button>
+            <button id="bulkRenameButton" class="secondary" type="button">批量命名</button>
+            <button id="bulkPromptButton" class="secondary" type="button">批量导入提示词</button>
+            <button id="promptHistoryButton" class="secondary">历史提示词</button>
+            <button id="addCardButton">＋ 新增提示词卡</button>
+          </div>
+        </div>
+        <div id="cardList" class="card-list"></div>
+      </section>
+    </section>
+
+    <section class="panel monitor-panel">
+      <div class="monitor-head">
+        <div class="monitor-tabs">
+          <button id="tasksTab" class="monitor-tab active">任务中心 <span id="taskTabCount">0</span></button>
+          <button id="resultsTab" class="monitor-tab">结果素材 <span id="resultTabCount">0</span></button>
+        </div>
+        <div class="lifecycle-summary">
+          <span id="lifecycleStatus">生命周期调度器启动中</span>
+          <button id="runLifecycleButton" class="secondary">立即检查</button>
+          <button id="exportPromptsByDateButton" class="secondary" type="button">按日期导出提示词</button>
+          <button id="exportFailedPromptsButton" class="secondary" type="button">按日期导出失败提示词</button>
+          <button id="clearFinishedTasksButton" class="danger" type="button">一键删除已结束记录</button>
+        </div>
+      </div>
+      <div id="tasksView" class="monitor-view active">
+        <div id="taskList" class="task-list empty">暂无任务</div>
+      </div>
+      <div id="resultsView" class="monitor-view">
+        <div id="resultList" class="result-grid empty">暂无视频结果</div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="assetDialog">
+    <form method="dialog" class="dialog-card">
+      <div class="panel-head">
+        <div><small>REFERENCE IMAGES</small><h2>选择当前卡片参考图</h2></div>
+        <button value="cancel" class="secondary">关闭</button>
+      </div>
+      <input id="dialogSearch" type="search" placeholder="搜索素材" />
+      <div id="dialogAssetList" class="dialog-assets"></div>
+      <div class="dialog-footer">
+        <span id="dialogSelectionCount">已选择 0 / 9</span>
+        <button id="confirmAssetsButton" value="cancel" class="primary">确认选择</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="mediaDialog">
+    <div class="dialog-card media-dialog-card">
+      <div class="panel-head">
+        <div><small>REFERENCE MEDIA</small><h2>选择视频 / 音频参考</h2></div>
+        <button id="closeMediaDialogButton" class="secondary">关闭</button>
+      </div>
+      <p class="dialog-description">视频库与音频库独立选择。视频最多 3 个且片段总时长 ≤15 秒；音频最多 3 个；图片 + 视频 + 音频总文件数 ≤12。</p>
+      <div class="media-dialog-tabs">
+        <button class="media-dialog-tab active" data-tab="video" type="button">视频库</button>
+        <button class="media-dialog-tab" data-tab="audio" type="button">音频库</button>
+      </div>
+      <div class="media-dialog-toolbar">
+        <input id="mediaSearch" type="search" placeholder="搜索视频素材" />
+        <button id="importMediaButton" type="button">选择视频文件夹</button>
+      </div>
+      <div id="mediaDialogList" class="media-dialog-list"></div>
+      <div class="dialog-footer">
+        <span id="mediaDialogCount">视频 0/3 · 音频 0/3 · 总文件 0/12</span>
+        <button id="confirmMediaButton" class="primary" type="button">确认选择</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="mediaSegmentDialog">
+    <div class="dialog-card media-segment-dialog-card">
+      <div class="panel-head">
+        <div><small>MEDIA SEGMENT</small><h2 id="mediaSegmentTitle">选择参考片段</h2></div>
+        <button id="closeMediaSegmentButton" class="secondary">关闭</button>
+      </div>
+      <p id="mediaSegmentDescription" class="dialog-description"></p>
+      <div class="media-segment-preview">
+        <video id="mediaSegmentVideo" controls preload="metadata"></video>
+        <audio id="mediaSegmentAudio" controls preload="metadata"></audio>
+      </div>
+      <div class="segment-controls">
+        <div class="segment-range-label"><span>开始位置</span><strong id="mediaSegmentStartLabel">0.0s</strong></div>
+        <input id="mediaSegmentStartRange" type="range" min="0" max="0" step="0.1" value="0" />
+        <div class="segment-range-label"><span>结束位置</span><strong id="mediaSegmentEndLabel">15.0s</strong></div>
+        <input id="mediaSegmentEndRange" type="range" min="0" max="0" step="0.1" value="15" />
+        <div class="segment-number-row">
+          <label>开始秒数 <input id="mediaSegmentStartInput" type="number" min="0" step="0.1" value="0" /></label>
+          <label>结束秒数 <input id="mediaSegmentEndInput" type="number" min="0.1" step="0.1" value="15" /></label>
+          <button id="previewMediaSegmentButton" class="secondary" type="button">播放所选片段</button>
+        </div>
+        <div id="mediaSegmentSummary" class="segment-summary"></div>
+      </div>
+      <div class="dialog-footer">
+        <span>保存后会生成独立裁剪文件，原始文件不会被修改。</span>
+        <button id="saveMediaSegmentButton" class="primary" type="button">保存参考片段</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="bulkPromptDialog">
+    <div class="dialog-card bulk-prompt-dialog-card">
+      <div class="panel-head">
+        <div><small>BULK PROMPTS</small><h2>批量拆解提示词</h2></div>
+        <button id="closeBulkPromptButton" class="secondary" type="button">关闭</button>
+      </div>
+      <p class="dialog-description">可直接粘贴多条连续提示词或整份 Markdown。系统按每条“生成一段……X秒”自动拆卡，并自动识别 4–15 秒时长；正文中的 @素材名继续自动绑定。</p>
+      <textarea id="bulkPromptTextarea" class="bulk-prompt-textarea" spellcheck="false" placeholder="一次粘贴 10 条、30 条或更多提示词……"></textarea>
+      <div class="bulk-prompt-options">
+        <label>每条生成数量 <input id="bulkGenerationCount" type="number" min="1" max="99" step="1" value="2" /></label>
+        <span id="bulkPromptPreview">等待粘贴提示词</span>
+      </div>
+      <div class="dialog-footer">
+        <span>一次最多拆解 200 条；无法识别明确时长的内容不会作为独立 Prompt 导入。</span>
+        <div class="dialog-footer-actions">
+          <button id="cancelBulkPromptButton" class="secondary" type="button">取消</button>
+          <button id="importBulkPromptButton" class="primary" type="button">拆解并创建卡片</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="bulkRenameDialog">
+    <div class="dialog-card compact-dialog-card">
+      <div class="panel-head">
+        <div><small>BULK FILENAMES</small><h2>批量命名当前提示词卡</h2></div>
+        <button id="closeBulkRenameButton" class="secondary" type="button">关闭</button>
+      </div>
+      <p class="dialog-description">统一覆盖当前输入区所有卡片的视频文件名。系统按卡片顺序追加序号，不修改提示词、参考素材、时长或生成数量。</p>
+      <div class="bulk-rename-grid">
+        <label>文件名前缀 <input id="bulkRenamePrefix" type="text" placeholder="例如 M02_MicroClip" /></label>
+        <label>起始序号 <input id="bulkRenameStart" type="number" min="0" max="999999" step="1" value="1" /></label>
+        <label>序号位数 <input id="bulkRenamePadding" type="number" min="1" max="6" step="1" value="3" /></label>
+      </div>
+      <div id="bulkRenamePreview" class="segment-summary">示例：M02_MicroClip_001</div>
+      <div class="dialog-footer">
+        <span>当前所有卡片已有文件名将被覆盖。</span>
+        <div class="dialog-footer-actions">
+          <button id="cancelBulkRenameButton" class="secondary" type="button">取消</button>
+          <button id="applyBulkRenameButton" class="primary" type="button">应用批量命名</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="exportFailedPromptsDialog">
+    <div class="dialog-card compact-dialog-card">
+      <div class="panel-head">
+        <div><small>FAILED PROMPTS</small><h2>按日期导出失败提示词</h2></div>
+        <button id="closeExportFailedPromptsButton" class="secondary" type="button">关闭</button>
+      </div>
+      <p class="dialog-description">按任务实际失败日期筛选 submit_failed / remote_failed / download_failed，并导出 UTF-8 Markdown 文件。日期按当前电脑本地时区计算。</p>
+      <label class="export-date-field">失败日期 <input id="failedPromptExportDate" type="date" /></label>
+      <div class="dialog-footer">
+        <span>导出完整原始提示词、失败原因、时长和参考素材快照。</span>
+        <div class="dialog-footer-actions">
+          <button id="cancelExportFailedPromptsButton" class="secondary" type="button">取消</button>
+          <button id="confirmExportFailedPromptsButton" class="primary" type="button">导出 Markdown</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="exportPromptsByDateDialog">
+    <div class="dialog-card compact-dialog-card">
+      <div class="panel-head">
+        <div><small>PROMPTS BY DATE</small><h2>按日期导出提示词</h2></div>
+        <button id="closeExportPromptsByDateButton" class="secondary" type="button">关闭</button>
+      </div>
+      <p class="dialog-description">按任务创建日期导出当天已完成视频，只保留“视频文件名 + 原始提示词”。日期按当前电脑本地时区计算。</p>
+      <label class="export-date-field">任务日期 <input id="promptExportDate" type="date" /></label>
+      <div class="dialog-footer">
+        <span>导出 UTF-8 Markdown，适合直接交给能读取本地视频文件夹的 AI。</span>
+        <div class="dialog-footer-actions">
+          <button id="cancelExportPromptsByDateButton" class="secondary" type="button">取消</button>
+          <button id="confirmExportPromptsByDateButton" class="primary" type="button">导出 Markdown</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="promptHistoryDialog">
+    <div class="dialog-card prompt-history-dialog-card">
+      <div class="panel-head">
+        <div><small>PROMPT HISTORY</small><h2>历史提示词复用</h2></div>
+        <button id="closePromptHistoryButton" class="secondary">关闭</button>
+      </div>
+      <p class="dialog-description">从已提交任务中复用原始提示词。可用参考图会自动恢复，已失效图片需要重新选择。</p>
+      <input id="promptHistorySearch" type="search" placeholder="搜索提示词、视频文件名或 taskId" />
+      <div id="promptHistorySummary" class="prompt-history-summary">加载中…</div>
+      <div id="promptHistoryList" class="prompt-history-list"></div>
+    </div>
+  </dialog>
+
+  <dialog id="promptEditorDialog">
+    <div class="dialog-card prompt-editor-dialog-card">
+      <div class="panel-head">
+        <div><small>PROMPT EDITOR</small><h2 id="promptEditorTitle">编辑提示词</h2></div>
+        <button id="closePromptEditorButton" class="secondary">关闭</button>
+      </div>
+      <p class="dialog-description">输入 @ 时只显示当前卡片已选附件。直接粘贴完整提示词后，保存时仍会自动识别素材库中的完整 @素材名。</p>
+      <div id="promptEditorAttachments" class="prompt-editor-attachments"></div>
+      <div class="prompt-editor-modal-wrap">
+        <textarea id="promptEditorTextarea" spellcheck="false" placeholder="在这里编辑完整提示词"></textarea>
+        <div id="promptEditorMentionMenu" class="mention-menu prompt-editor-mention-menu hidden"></div>
+      </div>
+      <div class="dialog-footer">
+        <span id="promptEditorCount">0 字符</span>
+        <div class="dialog-footer-actions">
+          <button id="cancelPromptEditorButton" class="secondary">取消</button>
+          <button id="savePromptEditorButton" class="primary">保存提示词</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="taskPromptDialog">
+    <div class="dialog-card task-prompt-dialog-card">
+      <div class="panel-head">
+        <div><small>OUTPUT PROMPT</small><h2 id="taskPromptTitle">任务提示词</h2></div>
+        <button id="closeTaskPromptButton" class="secondary">关闭</button>
+      </div>
+      <div id="taskPromptMeta" class="task-prompt-meta"></div>
+      <pre id="taskPromptContent"></pre>
+      <div class="dialog-footer">
+        <span>可直接复用为新提示词卡进行二次调整</span>
+        <div class="dialog-footer-actions">
+          <button id="copyTaskPromptButton" class="secondary">复制提示词</button>
+          <button id="reuseTaskPromptButton" class="primary">复用并编辑</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="taskDialog">
+    <div class="dialog-card task-dialog-card">
+      <div class="panel-head">
+        <div><small>TASK DETAIL</small><h2>任务详情</h2></div>
+        <button id="closeTaskDialogButton" class="secondary">关闭</button>
+      </div>
+      <pre id="taskDetailContent"></pre>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

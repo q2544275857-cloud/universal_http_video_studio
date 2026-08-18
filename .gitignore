@@ -1,0 +1,26 @@
+# Runtime data / credentials
+storage/data/*
+storage/secrets/*
+storage/cache/*
+storage/logs/*
+runtime/
+*.db
+*.db-shm
+*.db-wal
+*cookie*.txt
+*Cookie*.txt
+.env
+.env.*
+!.env.example
+
+# Generated / local-only
+.playwright-cli/
+*.log
+.DS_Store
+Thumbs.db
+NUL
+node_modules/
+release/
+release-*/
+
+# Keep reproducible dependency lockfile in source control

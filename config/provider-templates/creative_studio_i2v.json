@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-06-30T06:20:03.804Z",
+  "source": "migrated_from_seedance_batch_studio",
+  "url": "https://ads.tiktok.com/creative_bff_i18n/api/cue/i2v/gen_r2v_video?aid=585599&app_name=creative_aio_client&device_platform=web",
+  "body": {
+    "image": "",
+    "images": [],
+    "prompt": "",
+    "duration": 15,
+    "model": "2000004",
+    "settings": "{\"images\":[],\"prompt\":\"\",\"aiModel\":\"2000004\",\"duration\":15}",
+    "mentions": []
+  }
+}

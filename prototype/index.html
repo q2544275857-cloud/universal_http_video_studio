@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Universal HTTP Video Studio — V1 Prototype</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="app-header">
+      <div class="brand-block">
+        <div class="brand-mark">UV</div>
+        <div>
+          <h1>Universal HTTP Video Studio</h1>
+          <p>图片参考 · 多提示词卡 · HTTP 生成与下载</p>
+        </div>
+      </div>
+      <div class="header-meta">
+        <span class="prototype-badge">交互原型</span>
+        <span class="version-text">V1 · Image Reference Only</span>
+      </div>
+    </header>
+
+    <section class="run-bar panel">
+      <div class="run-setting cookie-setting">
+        <span class="setting-label">广告后台 Cookie</span>
+        <div class="inline-actions">
+          <button id="cookieUploadButton" class="button secondary">上传 Cookie</button>
+          <input id="cookieFileInput" type="file" accept=".txt,.json" hidden />
+          <button id="verifyCookieButton" class="button ghost" disabled>验证</button>
+        </div>
+        <div id="cookieStatus" class="setting-status muted">未上传</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="run-setting directory-setting">
+        <span class="setting-label">视频保存目录</span>
+        <div class="inline-actions">
+          <button id="selectDirectoryButton" class="button secondary">选择目录</button>
+        </div>
+        <div id="directoryStatus" class="setting-status muted">未选择</div>
+      </div>
+
+      <div class="run-summary">
+        <div><strong id="validCardCount">0</strong><span>有效卡片</span></div>
+        <div><strong id="runningTaskCount">0</strong><span>运行中</span></div>
+        <div><strong id="completedTaskCount">0</strong><span>已完成</span></div>
+      </div>
+
+      <button id="submitAllButton" class="button primary large" disabled>
+        提交全部有效卡片
+      </button>
+    </section>
+
+    <main class="workspace-grid">
+      <aside class="asset-panel panel">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">STEP 1</span>
+            <h2>图片素材库</h2>
+          </div>
+          <button id="assetFolderButton" class="button secondary compact">选择文件夹</button>
+          <input id="assetFolderInput" type="file" accept="image/png,image/jpeg,image/webp" webkitdirectory directory multiple hidden />
+        </div>
+
+        <div id="assetDropzone" class="asset-dropzone" tabindex="0">
+          <div class="dropzone-icon">▣</div>
+          <strong id="assetFolderStatus">先选择图片文件夹</strong>
+          <span>自动扫描 PNG / JPG / JPEG / WEBP，可包含子文件夹</span>
+        </div>
+
+        <div class="asset-toolbar">
+          <span id="assetCount">0 张素材</span>
+          <button id="clearUnusedAssetsButton" class="text-button">移除未引用</button>
+        </div>
+
+        <div id="assetList" class="asset-list empty-state">
+          <div class="empty-illustration">▧</div>
+          <p>尚未选择图片文件夹</p>
+          <span>选择文件夹后，提示词卡可从扫描结果中选图</span>
+        </div>
+      </aside>
+
+      <section class="prompt-workspace panel">
+        <div class="panel-heading prompt-heading">
+          <div>
+            <span class="eyebrow">STEP 2</span>
+            <h2>提示词卡</h2>
+            <p>每张卡独立选择参考图和生成参数。</p>
+          </div>
+          <button id="addPromptCardButton" class="button secondary">＋ 新增提示词卡</button>
+        </div>
+
+        <div id="globalValidationBanner" class="validation-banner hidden"></div>
+
+        <div id="promptCardList" class="prompt-card-list"></div>
+      </section>
+    </main>
+
+    <section class="monitor-panel panel">
+      <div class="monitor-header">
+        <div class="tab-list" role="tablist">
+          <button class="tab active" data-tab="tasks">任务中心 <span id="taskTabCount">0</span></button>
+          <button class="tab" data-tab="results">结果素材 <span id="resultTabCount">0</span></button>
+        </div>
+        <div class="monitor-actions">
+          <button id="clearCompletedButton" class="text-button">清除演示结果</button>
+        </div>
+      </div>
+
+      <div id="tasksView" class="tab-view active">
+        <div id="taskList" class="task-list empty-state horizontal-empty">
+          <div class="empty-illustration">◎</div>
+          <div>
+            <p>暂无生成任务</p>
+            <span>完成 Cookie、目录、素材和提示词卡配置后提交。</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultsView" class="tab-view">
+        <div id="resultList" class="result-grid empty-state horizontal-empty">
+          <div class="empty-illustration">▶</div>
+          <div>
+            <p>暂无视频结果</p>
+            <span>获取视频链接并完成下载后显示在这里。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="assetPickerModal" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">参考图附件</span>
+          <h3>从素材库选择图片</h3>
+        </div>
+        <button id="closeAssetPickerButton" class="icon-button">×</button>
+      </div>
+      <div id="assetPickerGrid" class="asset-picker-grid"></div>
+      <div class="modal-footer">
+        <span id="assetPickerSelectionText">已选择 0 张，最多 8 张</span>
+        <button id="confirmAssetPickerButton" class="button primary">确认选择</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastRegion" class="toast-region" aria-live="polite"></div>
+
+  <template id="promptCardTemplate">
+    <article class="prompt-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-index"></span>
+          <div>
+            <h3 class="card-title"></h3>
+            <span class="card-status">草稿</span>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="text-button duplicate-card">复制</button>
+          <button class="text-button danger delete-card">删除</button>
+        </div>
+      </div>
+
+      <div class="field-block reference-field">
+        <div class="field-label-row">
+          <label>参考图片附件 <em>*</em></label>
+          <span class="field-help">从素材库选择，最多 8 张，顺序决定 media 索引</span>
+        </div>
+        <div class="selected-assets"></div>
+        <button class="select-assets-button dashed-button">＋ 选择参考图</button>
+        <div class="field-error"></div>
+      </div>
+
+      <div class="field-block prompt-field">
+        <div class="field-label-row">
+          <label>提示词输入框 <em>*</em></label>
+          <span class="field-help">输入 @ 可引用当前卡片已选图片</span>
+        </div>
+        <div class="prompt-input-wrap">
+          <textarea class="prompt-input" rows="7" placeholder="描述视频内容、动作、镜头和画面要求。输入 @ 选择参考图……"></textarea>
+          <div class="mention-menu hidden"></div>
+        </div>
+        <div class="prompt-meta">
+          <span class="mention-summary">尚未使用 @ 图片引用</span>
+          <span class="character-count">0 字</span>
+        </div>
+        <div class="field-error"></div>
+      </div>
+
+      <div class="parameter-grid">
+        <div class="field-block compact-field duration-field">
+          <label>时间选择 <em>*</em></label>
+          <div class="number-input-wrap">
+            <input class="duration-input" type="number" min="5" max="15" step="1" value="15" />
+            <span>秒</span>
+          </div>
+          <small>5–15 秒，默认 15 秒</small>
+          <div class="field-error"></div>
+        </div>
+
+        <div class="field-block compact-field filename-field">
+          <label>视频文件名 <span>可选</span></label>
+          <div class="filename-input-wrap">
+            <input class="filename-input" type="text" maxlength="120" placeholder="留空则自动生成" />
+            <span>.mp4</span>
+          </div>
+          <small>不会覆盖已有同名文件</small>
+          <div class="field-error"></div>
+        </div>
+
+        <div class="field-block compact-field retry-field">
+          <label>失败后重新提交次数</label>
+          <div class="number-input-wrap">
+            <input class="retry-input" type="number" min="0" max="5" step="1" value="0" />
+            <span>次</span>
+          </div>
+          <small>0–5 次，默认 0，不自动重提</small>
+          <div class="field-error"></div>
+        </div>
+      </div>
+
+      <div class="compiled-preview hidden">
+        <div class="compiled-title">提交编译预览</div>
+        <code></code>
+      </div>
+    </article>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>

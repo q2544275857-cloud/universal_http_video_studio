@@ -1,0 +1,74 @@
+{
+  "name": "universal-http-video-studio",
+  "version": "0.5.10",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "description": "Local multimodal reference video workstation with encrypted cookies, image/video/audio reference preparation, segment selection, HTTP submission, persistent polling, automatic downloads and result management.",
+  "author": "Universal HTTP Video Studio",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "app:dev": "electron .",
+    "dist:win": "electron-builder --win nsis portable --x64",
+    "check": "node --check electron/main.js && node --check server/index.js && node --check server/windowsDialog.js && node --check server/db.js && node --check server/assets.js && node --check server/referenceMedia.js && node --check server/cookieService.js && node --check server/taskService.js && node --check server/lifecycleService.js && node --check server/downloadService.js && node --check server/proxyResolver.js && node --check server/provider/creativeStudioI2V.js && node --check public/promptMentions.js && node --check public/app.js"
+  },
+  "devDependencies": {
+    "electron": "43.3.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.seedance.universal-http-video-studio",
+    "productName": "Universal HTTP Video Studio",
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "compression": "maximum",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "server/**/*",
+      "public/**/*",
+      "config/provider-templates/creative_studio_i2v.json",
+      "package.json",
+      "!**/*.map",
+      "!**/*.test.*"
+    ],
+    "extraResources": [
+      {
+        "from": "C:/ffmpeg/bin",
+        "to": "bin",
+        "filter": ["ffmpeg.exe", "ffprobe.exe", "*.dll"]
+      }
+    ],
+    "win": {
+      "requestedExecutionLevel": "asInvoker",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "${productName}-${version}-Setup.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable.${ext}"
+    }
+  }
+}
