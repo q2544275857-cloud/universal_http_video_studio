@@ -92,28 +92,34 @@ git archive --format=zip --output="$zipPath" HEAD
 # Create or attach private GitHub repository.
 $repoName = 'universal-http-video-studio'
 $repoFull = "$login/$repoName"
-$repoExists = $true
-try {
-  gh repo view $repoFull --json nameWithOwner,visibility | Out-Null
-} catch {
-  $repoExists = $false
-}
+gh repo view $repoFull --json nameWithOwner,visibility 2>$null | Out-Null
+$repoExists = ($LASTEXITCODE -eq 0)
+$remoteUrl = "https://github.com/$repoFull.git"
 
 if (-not $repoExists) {
-  gh repo create $repoFull --private --source . --remote origin --description 'Universal HTTP Video Studio source backup' | Out-Host
-} else {
-  $remoteUrl = "https://github.com/$repoFull.git"
-  $origin = git remote get-url origin 2>$null
-  if (-not $origin) {
-    git remote add origin $remoteUrl
-  } elseif ($origin -ne $remoteUrl) {
-    git remote set-url origin $remoteUrl
+  gh repo create $repoFull --private --description 'Universal HTTP Video Studio source backup' | Out-Host
+  if ($LASTEXITCODE -ne 0) {
+    throw "GitHub repository creation failed for $repoFull."
   }
+}
+
+$origin = git remote get-url origin 2>$null
+if (-not $origin) {
+  git remote add origin $remoteUrl
+} elseif ($origin.TrimEnd('/') -ne $remoteUrl.TrimEnd('/')) {
+  git remote set-url origin $remoteUrl
+}
+
+$origin = git remote get-url origin 2>$null
+if (-not $origin) {
+  throw 'Git remote origin was not created.'
 }
 
 # Push source and tag.
 git push -u origin main
+if ($LASTEXITCODE -ne 0) { throw 'Failed to push main branch.' }
 git push origin $tag
+if ($LASTEXITCODE -ne 0) { throw "Failed to push tag $tag." }
 
 Write-Host ''
 Write-Host 'Backup completed.' -ForegroundColor Green
