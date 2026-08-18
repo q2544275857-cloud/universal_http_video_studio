@@ -97,17 +97,17 @@ if ($LASTEXITCODE -ne 0) {
   throw "Target GitHub repository does not exist or is not accessible: $repoFull"
 }
 
-$origin = git remote get-url origin 2>$null
-if (-not $origin) {
-  git remote add origin $remoteUrl
-} elseif ($origin.TrimEnd('/') -ne $remoteUrl.TrimEnd('/')) {
+$remotes = @(git remote)
+if ($remotes -contains 'origin') {
   git remote set-url origin $remoteUrl
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to update git remote origin.' }
+} else {
+  git remote add origin $remoteUrl
+  if ($LASTEXITCODE -ne 0) { throw 'Failed to create git remote origin.' }
 }
 
-$origin = git remote get-url origin 2>$null
-if (-not $origin) {
-  throw 'Git remote origin was not created.'
-}
+git remote -v | Out-Host
+if ($LASTEXITCODE -ne 0) { throw 'Failed to verify git remote origin.' }
 
 # Preserve the existing GitHub repository history. The remote currently has an
 # initial README commit, while the local project has its own independent history.
