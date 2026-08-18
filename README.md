@@ -1,0 +1,2 @@
+# universal_http_video_studio
+基于tiktok Symphony Creative Studio 构建的批量化广告生成工具，可越过每次仅允许提交五次的上限，目前仅支持图生视频模式 仅支持seedance2.0模型
